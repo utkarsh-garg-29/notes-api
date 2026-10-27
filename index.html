@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notes API</title>
+<style>
+  :root {
+    --paper: #F6F7F9;
+    --panel: #FFFFFF;
+    --ink: #14202B;
+    --muted: #5B6877;
+    --line: #D9DEE5;
+    --accent: #2A5BD7;
+    --accent-ink: #FFFFFF;
+    --done: #1F8A5B;
+    --danger: #B3261E;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #10161D;
+      --panel: #18212B;
+      --ink: #E7ECF1;
+      --muted: #9AA7B4;
+      --line: #2B3744;
+      --accent: #6C93F5;
+      --accent-ink: #0B1220;
+      --done: #4CC38A;
+      --danger: #F2867F;
+      color-scheme: dark;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { background: var(--paper); }
+  body {
+    margin: 0;
+    color: var(--ink);
+    background: var(--paper);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 40rem; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+  [hidden] { display: none !important; }
+
+  h1 { font-size: 1.5rem; margin: 0; letter-spacing: -0.01em; }
+  h2 { font-size: 1.125rem; margin: 0; }
+  p { margin: 0; }
+  .muted { color: var(--muted); }
+
+  label { display: block; font-size: 0.875rem; font-weight: 600; margin-bottom: 0.25rem; }
+  input, textarea {
+    width: 100%;
+    font: inherit;
+    color: var(--ink);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 0.6rem 0.75rem;
+  }
+  textarea { resize: vertical; min-height: 4.5rem; }
+  input:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  button {
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--ink);
+    padding: 0.55rem 0.9rem;
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  button.link { border: 0; background: none; color: var(--accent); padding: 0; text-decoration: underline; }
+  button.danger { color: var(--danger); }
+  button:disabled { opacity: 0.55; cursor: progress; }
+
+  .field { margin-bottom: 1rem; }
+  .row { display: flex; gap: 0.5rem; align-items: stretch; }
+  .row > input { flex: 1; }
+
+  /* status line (errors, waking-up notice) */
+  #status { min-height: 1.5rem; margin: 1rem 0 0; font-size: 0.9375rem; }
+  #status.error { color: var(--danger); }
+
+  /* sign-in view */
+  #authView { margin-top: 12vh; }
+  #authView h1 { margin-bottom: 0.5rem; }
+  #authView .intro { margin-bottom: 1.5rem; max-width: 30rem; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 1.25rem;
+  }
+  #authSwitch { margin-top: 1rem; font-size: 0.9375rem; }
+
+  /* app view */
+  header.top { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 2rem; }
+  header.top .who { display: flex; align-items: center; gap: 0.75rem; font-size: 0.875rem; }
+
+  /* the chat bar is the main feature, so it gets the most space */
+  #chatSection { margin-bottom: 2.5rem; }
+  #chatSection h2 { font-size: 1.375rem; margin-bottom: 0.25rem; }
+  #chatSection .hint { margin-bottom: 0.75rem; }
+  #chatForm input { padding: 0.8rem 0.9rem; font-size: 1.0625rem; }
+  #reply {
+    margin-top: 0.75rem;
+    padding: 0.75rem 0.9rem;
+    border-left: 3px solid var(--accent);
+    background: var(--panel);
+    border-radius: 0 6px 6px 0;
+    white-space: pre-wrap;
+  }
+
+  /* notes */
+  .section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; gap: 1rem; }
+  #summary {
+    margin-bottom: 1rem;
+    padding: 0.75rem 0.9rem;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    white-space: pre-wrap;
+  }
+  #addForm { margin-bottom: 1.5rem; }
+  #addForm .actions { margin-top: 0.5rem; }
+
+  ul#notes { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+  ul#notes li {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    padding: 0.85rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+  ul#notes input[type="checkbox"] { width: 1.15rem; height: 1.15rem; margin-top: 0.3rem; accent-color: var(--done); flex: none; }
+  ul#notes .text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  ul#notes .title { font-weight: 600; }
+  ul#notes .content { color: var(--muted); font-size: 0.9375rem; white-space: pre-wrap; }
+  ul#notes li.done .title { text-decoration: line-through; color: var(--muted); }
+  #empty { padding: 1rem 0; }
+</style>
+</head>
+<body>
+<main>
+
+  <!-- Sign in / sign up -->
+  <section id="authView" hidden>
+    <h1>Notes API</h1>
+    <p class="intro muted">Keep notes, then ask questions about them in plain English. Each account only sees its own notes.</p>
+    <form id="authForm" class="panel" novalidate>
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" type="email" autocomplete="email" required>
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" type="password" autocomplete="current-password" required>
+      </div>
+      <button id="authSubmit" class="primary" type="submit">Log in</button>
+      <p id="authSwitch" class="muted">
+        <span id="authSwitchText">New here?</span>
+        <button id="authSwitchBtn" class="link" type="button">Create an account</button>
+      </p>
+    </form>
+  </section>
+
+  <!-- Signed-in app -->
+  <section id="appView" hidden>
+    <header class="top">
+      <h1>Notes</h1>
+      <div class="who">
+        <span id="whoEmail" class="muted"></span>
+        <button id="logoutBtn" type="button">Log out</button>
+      </div>
+    </header>
+
+    <section id="chatSection" aria-labelledby="chatTitle">
+      <h2 id="chatTitle">Ask your notes</h2>
+      <p class="hint muted">Try "mark buy milk as done" or "what is still open?"</p>
+      <form id="chatForm" class="row">
+        <label for="chatInput" class="sr" style="position:absolute;left:-9999px">Your request</label>
+        <input id="chatInput" type="text" placeholder="Type a request" autocomplete="off" required>
+        <button id="chatBtn" class="primary" type="submit">Ask</button>
+      </form>
+      <div id="reply" aria-live="polite" hidden></div>
+    </section>
+
+    <section aria-labelledby="notesTitle">
+      <div class="section-head">
+        <h2 id="notesTitle">Your notes</h2>
+        <button id="summarizeBtn" type="button">Summarize notes</button>
+      </div>
+      <div id="summary" aria-live="polite" hidden></div>
+
+      <form id="addForm">
+        <div class="field">
+          <label for="noteTitle">Title</label>
+          <input id="noteTitle" type="text" required>
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label for="noteContent">Details (optional)</label>
+          <textarea id="noteContent"></textarea>
+        </div>
+        <div class="actions"><button id="addBtn" class="primary" type="submit">Add note</button></div>
+      </form>
+
+      <ul id="notes"></ul>
+      <p id="empty" class="muted" hidden>No notes yet. Add your first one above.</p>
+    </section>
+  </section>
+
+  <p id="status" role="status" aria-live="polite"></p>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  var $ = function (id) { return document.getElementById(id); };
+  var mode = "login";            // "login" or "signup"
+  var wakeShown = false;         // true while the "server is waking up" notice is on screen
+
+  /* ---------- token + email storage (wrapped: storage can be blocked) ---------- */
+  function store(key, value) {
+    try {
+      if (value === null) { localStorage.removeItem(key); } else { localStorage.setItem(key, value); }
+    } catch (e) { /* ignore */ }
+  }
+  function load(key) {
+    try { return localStorage.getItem(key); } catch (e) { return null; }
+  }
+
+  /* ---------- status line ---------- */
+  function setStatus(message, isError) {
+    var el = $("status");
+    el.textContent = message || "";
+    el.className = isError ? "error" : "";
+  }
+
+  /* ---------- API helper ---------- */
+  function errorText(data, status) {
+    if (data && data.detail) {
+      if (typeof data.detail === "string") { return data.detail; }
+      if (Array.isArray(data.detail)) {
+        return data.detail.map(function (d) { return d.msg || "Invalid input"; }).join(". ");
+      }
+    }
+    return "Something went wrong (error " + status + ").";
+  }
+
+  async function api(path, options) {
+    options = options || {};
+    var headers = {};
+    var body;
+    var token = load("token");
+    var needsAuth = options.auth !== false;
+
+    if (options.json) {
+      headers["Content-Type"] = "application/json";
+      body = JSON.stringify(options.json);
+    } else if (options.form) {
+      body = new URLSearchParams(options.form);
+    }
+    if (needsAuth && token) { headers["Authorization"] = "Bearer " + token; }
+
+    // free hosting sleeps when idle, so tell the person why the first request is slow
+    var wakeTimer = setTimeout(function () {
+      wakeShown = true;
+      setStatus("Waking up the server. The first request can take about a minute.", false);
+    }, 4000);
+
+    try {
+      var res = await fetch(path, { method: options.method || "GET", headers: headers, body: body });
+      var data = null;
+      try { data = await res.json(); } catch (e) { /* no JSON body */ }
+
+      if (res.status === 401 && needsAuth) {
+        logout("Your session ended. Log in again.");
+        throw new Error("Not logged in");
+      }
+      if (!res.ok) { throw new Error(errorText(data, res.status)); }
+      return data;
+    } finally {
+      clearTimeout(wakeTimer);
+      if (wakeShown) { wakeShown = false; setStatus("", false); }
+    }
+  }
+
+  /* ---------- views ---------- */
+  function showAuth() {
+    $("appView").hidden = true;
+    $("authView").hidden = false;
+  }
+  function showApp() {
+    $("authView").hidden = true;
+    $("appView").hidden = false;
+    $("whoEmail").textContent = load("email") || "";
+    loadNotes();
+  }
+  function logout(message) {
+    store("token", null);
+    store("email", null);
+    $("notes").replaceChildren();
+    $("reply").hidden = true;
+    $("summary").hidden = true;
+    showAuth();
+    setStatus(message || "", false);
+  }
+
+  /* ---------- sign in / sign up ---------- */
+  function setMode(next) {
+    mode = next;
+    var signup = mode === "signup";
+    $("authSubmit").textContent = signup ? "Create account" : "Log in";
+    $("authSwitchText").textContent = signup ? "Already have an account?" : "New here?";
+    $("authSwitchBtn").textContent = signup ? "Log in" : "Create an account";
+    $("password").autocomplete = signup ? "new-password" : "current-password";
+    setStatus("", false);
+  }
+
+  async function logIn(email, password) {
+    var data = await api("/login", { method: "POST", form: { username: email, password: password }, auth: false });
+    store("token", data.access_token);
+    store("email", email.trim().toLowerCase());
+  }
+
+  $("authSwitchBtn").addEventListener("click", function () {
+    setMode(mode === "login" ? "signup" : "login");
+  });
+
+  $("authForm").addEventListener("submit", async function (event) {
+    event.preventDefault();
+    var email = $("email").value.trim();
+    var password = $("password").value;
+    if (!email || !password) { setStatus("Enter your email and password.", true); return; }
+
+    var button = $("authSubmit");
+    button.disabled = true;
+    setStatus("", false);
+    try {
+      if (mode === "signup") {
+        await api("/signup", { method: "POST", json: { email: email, password: password }, auth: false });
+      }
+      await logIn(email, password);
+      $("password").value = "";
+      showApp();
+    } catch (err) {
+      setStatus(err.message, true);
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  $("logoutBtn").addEventListener("click", function () { logout(""); });
+
+  /* ---------- notes ---------- */
+  function renderNotes(notes) {
+    var list = $("notes");
+    list.replaceChildren();
+    $("empty").hidden = notes.length > 0;
+
+    notes.forEach(function (note) {
+      var li = document.createElement("li");
+      if (note.done) { li.className = "done"; }
+
+      var box = document.createElement("input");
+      box.type = "checkbox";
+      box.checked = note.done;
+      box.setAttribute("aria-label", "Mark \"" + note.title + "\" as done");
+      box.addEventListener("change", function () { toggleDone(note, box); });
+
+      var text = document.createElement("div");
+      text.className = "text";
+      var title = document.createElement("div");
+      title.className = "title";
+      title.textContent = note.title;            // textContent keeps user text from running as HTML
+      text.appendChild(title);
+      if (note.content) {
+        var content = document.createElement("div");
+        content.className = "content";
+        content.textContent = note.content;
+        text.appendChild(content);
+      }
+
+      var del = document.createElement("button");
+      del.type = "button";
+      del.className = "danger";
+      del.textContent = "Delete";
+      del.setAttribute("aria-label", "Delete \"" + note.title + "\"");
+      del.addEventListener("click", function () { removeNote(note, del); });
+
+      li.appendChild(box);
+      li.appendChild(text);
+      li.appendChild(del);
+      list.appendChild(li);
+    });
+  }
+
+  async function loadNotes() {
+    try {
+      renderNotes(await api("/notes"));
+    } catch (err) {
+      if (err.message !== "Not logged in") { setStatus(err.message, true); }
+    }
+  }
+
+  async function toggleDone(note, box) {
+    box.disabled = true;
+    try {
+      await api("/notes/" + note.id, {
+        method: "PUT",
+        json: { title: note.title, content: note.content, done: box.checked }
+      });
+      setStatus("", false);
+      await loadNotes();
+    } catch (err) {
+      box.checked = !box.checked;
+      box.disabled = false;
+      if (err.message !== "Not logged in") { setStatus(err.message, true); }
+    }
+  }
+
+  async function removeNote(note, button) {
+    button.disabled = true;
+    try {
+      await api("/notes/" + note.id, { method: "DELETE" });
+      setStatus("", false);
+      await loadNotes();
+    } catch (err) {
+      button.disabled = false;
+      if (err.message !== "Not logged in") { setStatus(err.message, true); }
+    }
+  }
+
+  $("addForm").addEventListener("submit", async function (event) {
+    event.preventDefault();
+    var title = $("noteTitle").value.trim();
+    if (!title) { setStatus("Give the note a title.", true); return; }
+
+    var button = $("addBtn");
+    button.disabled = true;
+    try {
+      await api("/notes", { method: "POST", json: { title: title, content: $("noteContent").value.trim(), done: false } });
+      $("noteTitle").value = "";
+      $("noteContent").value = "";
+      setStatus("", false);
+      await loadNotes();
+    } catch (err) {
+      if (err.message !== "Not logged in") { setStatus(err.message, true); }
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  /* ---------- summarize ---------- */
+  $("summarizeBtn").addEventListener("click", async function () {
+    var button = $("summarizeBtn");
+    button.disabled = true;
+    try {
+      var data = await api("/notes/summarize");
+      $("summary").textContent = data.summary;
+      $("summary").hidden = false;
+      setStatus("", false);
+    } catch (err) {
+      if (err.message !== "Not logged in") { setStatus(err.message, true); }
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  /* ---------- chat with notes ---------- */
+  $("chatForm").addEventListener("submit", async function (event) {
+    event.preventDefault();
+    var message = $("chatInput").value.trim();
+    if (!message) { return; }
+
+    var button = $("chatBtn");
+    button.disabled = true;
+    $("reply").textContent = "Thinking...";
+    $("reply").hidden = false;
+    try {
+      var data = await api("/notes/chat", { method: "POST", json: { message: message } });
+      $("reply").textContent = data.reply;
+      $("chatInput").value = "";
+      setStatus("", false);
+      await loadNotes();                       // the assistant may have changed a note
+    } catch (err) {
+      $("reply").hidden = true;
+      if (err.message !== "Not logged in") { setStatus(err.message, true); }
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  /* ---------- start ---------- */
+  if (load("token")) { showApp(); } else { showAuth(); }
+})();
+</script>
+</body>
+</html>
