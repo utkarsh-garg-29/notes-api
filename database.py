@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker, declarative_base  # session maker + tab
 
 load_dotenv()                                          # loads .env so DATABASE_URL becomes available
 
-engine = create_engine(os.getenv("DATABASE_URL"))      # the actual connection to Postgres, built from your URL
+engine = create_engine(os.getenv("DATABASE_URL"),pool_pre_ping=True)      # the actual connection to Postgres, built from your URL
 SessionLocal = sessionmaker(bind=engine, autoflush=False)  # machine that makes sessions; changes only sent on commit
 Base = declarative_base()                              # parent class every table model inherits from
 
